@@ -10,7 +10,7 @@ begin {
     #Checking to make sure the network address supplied is valid.
     if ($NetworkAddress.Split(".").Count -ne 4) {
         #Throw an error if there aren't four octets.
-        Write-Error -Message "The network address supplied does not have enough octets." -Category InvalidData -ErrorId "InvalidNetAddr" -TargetObject $NetworkAddress -RecommendedAction "Check network address." -CategoryActivity "CheckProvData" -CategoryReason "InvalidNetAddr" -CategoryTargetName "NetworkAddress" -ErrorAction Stop
+        Write-Error -Message "The network address supplied does not have enough octets." -Category InvalidData -ErrorId "InvalidNetAddr" -TargetObject $NetworkAddress -RecommendedAction "Check network address." -CategoryActivity "CheckProvidedData.Octets" -CategoryReason "InvalidNetAddr" -CategoryTargetName "NetworkAddress" -ErrorAction Stop
     }
     else {
         #If there are four octects, try to convert to bytes.
@@ -21,6 +21,20 @@ begin {
             #Throw an error if the conversion fails.
             $ErrorDetails = $_
             throw $ErrorDetails
+        }
+
+        #Determine the network class.
+        if (($NetworkAddressBytes[0] -ge 8) -and ($NetworkAddressBytes[0] -le 126)) {
+            $NetworkClass = "A"
+        }
+        elseif (($NetworkAddressBytes[0] -ge 128) -and ($NetworkAddressBytes[0] -le 191)) {
+            $NetworkClass = "B"
+        }
+        elseif (($NetworkAddressBytes[0] -ge 192) -and ($NetworkAddressBytes[0] -le 223)) {
+            $NetworkClass = "C"
+        }
+        else {
+            Write-Error -Message "The network address supplied is not in a valid class." -Category InvalidData -ErrorId "InvalidNetAddr" -TargetObject $NetworkAddress -RecommendedAction "Check network address." -CategoryActivity "CheckProvidedData.Class" -CategoryReason "InvalidNetAddr" -CategoryTargetName "NetworkAddress" -ErrorAction Stop
         }
     }
 
@@ -52,13 +66,20 @@ process {
     }
 
     #Calculate the subnetmask from bits used.
-    [byte[]]$SubnetMask = foreach ($Wildcard in $WildcardBits) {
-        255 - $Wildcard
+    [byte[]]$SubnetMask = @()
+    foreach ($Wildcard in $WildcardBits) {
+        $SubnetMask += 255 - $Wildcard
     }
 
     #Calculate the broadcast address by adding the bits used to each octet.
-    [byte[]]$BroadcastAddress = for (($i = 0); $i -lt 4; $i++) {
-        $NetworkAddressBytes[$i] + $WildcardBits[$i]
+    [byte[]]$BroadcastAddress = @()
+    for (($i = 0); $i -lt 4; $i++) {
+        try {
+            $BroadcastAddress += $NetworkAddressBytes[$i] + $WildcardBits[$i]
+        }
+        catch {
+            Write-Error -Message "The network address supplied is invalid. Broadcast address calculation threw an error. (Octet: $($i + 1), Size: $($NetworkAddressBytes[$i] + $WildcardBits[$i]))" -Category InvalidData -ErrorId "InvalidNetAddr" -TargetObject $NetworkAddressBytes[$i] -RecommendedAction "Check network address." -CategoryActivity "CalcBroadcastAddress" -CategoryReason "InvalidNetAddr" -CategoryTargetName "AddressOctet-$($i + 1)" -ErrorAction Stop
+        }
     }
 
     #Add 1 to the network address and subtract one from the broadcast address for the usable host range.
@@ -70,6 +91,7 @@ process {
         "BroadcastAddress" = ($BroadcastAddress -join ".");
         "SubnetMask"       = ($SubnetMask -join ".");
         "CidrNotation"     = $CidrNotation;
+        "NetworkClass"     = $NetworkClass
         "HostRange"        = "$($FirstUsableHost -join ".") - $($LastUsableHost -join ".")";
         "TotalHosts"       = $TotalHosts;
         "TotalAddresses"   = $TotalAddresses
