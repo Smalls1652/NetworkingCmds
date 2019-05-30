@@ -7,6 +7,7 @@ param(
 
 begin {
 
+    Write-Verbose "Validating supplied network address."
     #Checking to make sure the network address supplied is valid.
     if ($NetworkAddress.Split(".").Count -ne 4) {
         #Throw an error if there aren't four octets.
@@ -15,6 +16,7 @@ begin {
     else {
         #If there are four octects, try to convert to bytes.
         try {
+            Write-Verbose "Converting network address to a byte array."
             [byte[]]$NetworkAddressBytes = $NetworkAddress.Split(".")
         }
         catch {
@@ -36,17 +38,21 @@ begin {
         else {
             Write-Error -Message "The network address supplied is not in a valid class." -Category InvalidData -ErrorId "InvalidNetAddr" -TargetObject $NetworkAddress -RecommendedAction "Check network address." -CategoryActivity "CheckProvidedData.Class" -CategoryReason "InvalidNetAddr" -CategoryTargetName "NetworkAddress" -ErrorAction Stop
         }
+        Write-Verbose "Network class determined as a 'Class $($NetworkClass)' network."
     }
+    Write-Verbose "Network address validation complete."
 
     $TotalBits = 32
 
 }
 
 process {
+    Write-Verbose "Calculating the total number of addresses and usable hosts."
     #Calculate the total number of addresses and usable hosts with the provided CIDR notation.
     $TotalAddresses = [math]::Pow(2, ($TotalBits - $CidrNotation))
     $TotalHosts = $TotalAddresses - 2
 
+    Write-Verbose "Determining the number of bits being used."
     #Determine the amount of bits used if...
     if ($TotalAddresses -le [math]::Pow(256, 1)) {
         #TotalAddress <= 256^1, then the fourth octet is calculated.
@@ -65,12 +71,14 @@ process {
         $WildcardBits = [byte[]]((($TotalAddresses / [math]::Pow(256, 3)) - 1), 255, 255, 255)
     }
 
+    Write-Verbose "Calculating subnet mask."
     #Calculate the subnetmask from bits used.
     [byte[]]$SubnetMask = @()
     foreach ($Wildcard in $WildcardBits) {
         $SubnetMask += 255 - $Wildcard
     }
 
+    Write-Verbose "Calculating broadcast address."
     #Calculate the broadcast address by adding the bits used to each octet.
     [byte[]]$BroadcastAddress = @()
     for (($i = 0); $i -lt 4; $i++) {
@@ -82,10 +90,14 @@ process {
         }
     }
 
+    Write-Verbose "Calculating the first and last usable host addresses."
     #Add 1 to the network address and subtract one from the broadcast address for the usable host range.
     [byte[]]$FirstUsableHost = ($NetworkAddressBytes[0], $NetworkAddressBytes[1], $NetworkAddressBytes[2], ($NetworkAddressBytes[3] + 1))
     [byte[]]$LastUsableHost = ($BroadcastAddress[0], $BroadcastAddress[1], $BroadcastAddress[2], ($BroadcastAddress[3] - 1))
+}
 
+end {
+    Write-Verbose "Returning data."
     return [pscustomobject]@{
         "NetworkAddress"   = ($NetworkAddress -join ".");
         "HostRange"        = "$($FirstUsableHost -join ".") - $($LastUsableHost -join ".")";
