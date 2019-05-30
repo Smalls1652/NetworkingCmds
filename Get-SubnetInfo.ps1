@@ -88,11 +88,11 @@ process {
 
     return [pscustomobject]@{
         "NetworkAddress"   = ($NetworkAddress -join ".");
+        "HostRange"        = "$($FirstUsableHost -join ".") - $($LastUsableHost -join ".")";
         "BroadcastAddress" = ($BroadcastAddress -join ".");
         "SubnetMask"       = ($SubnetMask -join ".");
         "CidrNotation"     = $CidrNotation;
         "NetworkClass"     = $NetworkClass
-        "HostRange"        = "$($FirstUsableHost -join ".") - $($LastUsableHost -join ".")";
         "TotalHosts"       = $TotalHosts;
         "TotalAddresses"   = $TotalAddresses
     }
