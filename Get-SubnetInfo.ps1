@@ -38,16 +38,16 @@ process {
         #TotalAddress <= 256^1, then the fourth octet is calculated.
         $WildcardBits = [byte[]](0, 0, 0, (255 - (256 - $TotalAddresses)))
     }
-    elseif (($TotalAddresses -gt [math]::Pow(256, 1)) -and ($TotalAddresses -lt [math]::Pow(256, 2))) {
-        #256^1 < TotalAddresses > 256^2, then the third octet is calculated.
+    elseif (($TotalAddresses -ge [math]::Pow(256, 1)) -and ($TotalAddresses -lt [math]::Pow(256, 2))) {
+        #256^1 <= TotalAddresses > 256^2, then the third octet is calculated.
         $WildcardBits = [byte[]](0, 0, (($TotalAddresses / 256) - 1), 255)
     }
-    elseif ($TotalAddresses -gt [math]::Pow(256, 2) -and ($TotalAddresses -lt [math]::Pow(256, 3))) {
-        #256^2 < TotalAddresses > 256^3, then the second octet is calculated.
+    elseif ($TotalAddresses -ge [math]::Pow(256, 2) -and ($TotalAddresses -lt [math]::Pow(256, 3))) {
+        #256^2 <= TotalAddresses > 256^3, then the second octet is calculated.
         $WildcardBits = [byte[]](0, (($TotalAddresses / [math]::Pow(256, 2)) - 1), 255, 255)
     }
-    elseif ($TotalAddresses -gt [math]::Pow(256, 3)) {
-        #TotalAddresses > 256^3, then the first octet is calculated.
+    elseif ($TotalAddresses -ge [math]::Pow(256, 3)) {
+        #TotalAddresses => 256^3, then the first octet is calculated.
         $WildcardBits = [byte[]]((($TotalAddresses / [math]::Pow(256, 3)) - 1), 255, 255, 255)
     }
 
